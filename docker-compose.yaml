@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  web:
+    image: ${DOCKER_REGISTRY}/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}:${IMAGE_TAG}
+    ports:
+      - '7000-7002:80'
+      
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: any
+    networks:
+      - webnet
+      - dbnet
+    depends_on:
+      - mysql  
+#extra services just for testing
+  mysql:
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: myusername
+      MYSQL_PASSWORD: mypassword
+      MYSQL_DATABASE: mydatabase
+    networks:
+      - dbnet
+    volumes:
+      - mysql_data:/var/lib/mysql
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+
+  pma:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - 7003:80
+    environment:
+      - PMA_HOST=mysql            
+      - PMA_PORT=3306     
+      - PMA_USER=myusername       
+      - PMA_PASSWORD=mypassword  
+    networks:
+      - dbnet
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+
+networks:
+  webnet:
+  dbnet:
+
+volumes:
+  mysql_data:
+        external: false
+  php_data:
+        external: false

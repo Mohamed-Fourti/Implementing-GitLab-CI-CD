@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  registry:
+    image: registry:latest
+    ports:
+      - "5000:5000"
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm  
+    volumes:
+      - /home/debian/docker_registry/volume:/var/lib/registry
+      - /home/debian/docker_registry/auth:/auth
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+
+networks:
+  default:
+      name: gitlab-network
+      external: true

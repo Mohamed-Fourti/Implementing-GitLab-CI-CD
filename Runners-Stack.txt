@@ -1,0 +1,50 @@
+version: '3.8'
+services:
+  gitlab-runner-build:
+    image: gitlab/gitlab-runner:alpine
+    container_name: gitlab-runner-build
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /srv/gitlab-runner/build/config:/etc/gitlab-runner
+    deploy:
+      placement:
+        constraints: [node.hostname == worker-1]
+      mode: replicated
+      replicas: 1
+      restart_policy:
+         condition: any
+
+
+  gitlab-runner-test:
+    image: gitlab/gitlab-runner:alpine
+    container_name: gitlab-runner-test
+    volumes:
+      - /srv/gitlab-runner/test/config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      placement:
+        constraints: [node.hostname == worker-1]
+      mode: replicated
+      replicas: 1
+      restart_policy:
+         condition: any
+
+         
+  gitlab-runner-deploy:
+      image: gitlab/gitlab-runner:alpine
+      container_name: gitlab-runner-deploy
+      volumes:
+        - /srv/gitlab-runner/deploy/config:/etc/gitlab-runner
+        - /var/run/docker.sock:/var/run/docker.sock
+      deploy:
+        placement:
+          constraints: [node.hostname == Manager]
+        mode: replicated
+        replicas: 1
+        restart_policy:
+           condition: any
+
+networks:
+  default:
+      name: gitlab-network
+      external: true

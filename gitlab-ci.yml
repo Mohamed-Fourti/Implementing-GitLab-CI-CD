@@ -1,0 +1,78 @@
+stages:
+  - build
+  - test
+  - deploy
+variables:
+  DOCKER_DRIVER: overlay2
+  IMAGE_TAG: v2
+
+build:
+  stage: build
+  image: docker:latest
+
+  services:
+    - docker:dind
+
+  before_script:
+    - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
+
+  script:
+    - echo "Building Docker image..."
+    - docker version
+    - docker build --tag $DOCKER_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME:$IMAGE_TAG -f Dockerfile .
+    - docker push $DOCKER_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME:$IMAGE_TAG 
+
+  tags:
+    - build-push
+    
+test:
+  stage: test
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
+  script:
+    - echo "Deploying services using docker-compose..."
+    - docker pull $DOCKER_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME:$IMAGE_TAG
+    - docker-compose -f compose.yaml up -d web
+    - sleep 10
+    - RESPONSE=$(docker-compose -f compose.yaml exec web curl -s http://localhost:80)
+    - |
+      if [[ $? -eq 0 ]]; then
+        echo "Service deployment and test passed."
+        docker-compose -f compose.yaml down
+      else
+        echo "Service deployment or test failed."
+        docker-compose -f compose.yaml down
+        exit 1
+      fi
+  needs:
+    - build
+  tags:
+    - test
+
+deploy:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
+  script:
+    - echo "Deploying services using docker-compose..."
+    - docker pull $DOCKER_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME:$IMAGE_TAG
+    - docker stack deploy -c docker-compose.yaml $CI_PROJECT_NAME --with-registry-auth
+    - sleep 20
+    - |
+      if wget -qO- http://192.168.246.139:7000/ > /dev/null; then
+        echo "Stack deployment passed."
+      else
+        echo "Stack deployment failed."
+        docker stack rm $CI_PROJECT_NAME
+        exit 1
+      fi
+  needs:
+    - test
+  tags:
+    - deploy

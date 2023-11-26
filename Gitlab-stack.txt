@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  gitlab:
+    image: gitlab
+    ports:
+      - "22:22"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /srv/swarm/gitlab/data/:/var/opt/gitlab
+      - /srv/swarm/gitlab/logs/:/var/log/gitlab
+      - /srv/swarm/gitlab/config/:/etc/gitlab
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://192.168.246.139/'
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+        letsencrypt['enable'] = false
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    
+    
+networks:
+  default:
+      name: gitlab-network
+      external: true
